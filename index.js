@@ -2,6 +2,7 @@ require('dotenv').config()
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -29,6 +30,13 @@ async function run() {
         const biodataCollection = client.db("soulKnotDB").collection("biodata");
         const userCollection = client.db("soulKnotDB").collection("users");
 
+        // jwt related api
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '6h' });
+            res.send({ token });
+        })
+
         // users related api
         app.get('/users', async (req, res) => {
             const result = await userCollection.find().toArray();
@@ -40,11 +48,11 @@ async function run() {
             const query = { email: user.email }
             const existingUser = await userCollection.findOne(query);
             if (existingUser) {
-              return res.send({ message: 'user already exists', insertedId: null })
+                return res.send({ message: 'user already exists', insertedId: null })
             }
             const result = await userCollection.insertOne(user);
             res.send(result);
-          });
+        });
 
         app.get('/biodata', async (req, res) => {
             const result = await biodataCollection.find().toArray();
