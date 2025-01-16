@@ -29,6 +29,7 @@ async function run() {
 
         const biodataCollection = client.db("soulKnotDB").collection("biodata");
         const userCollection = client.db("soulKnotDB").collection("users");
+        const storiesCollection = client.db("soulKnotDB").collection("stories");
 
         // jwt related api
         app.post('/jwt', async (req, res) => {
@@ -54,10 +55,18 @@ async function run() {
             res.send(result);
         });
 
+        // biodata related api's
         app.get('/biodata', async (req, res) => {
             const result = await biodataCollection.find().toArray();
             res.send(result)
         })
+        // todo: post request for biodata
+
+        // stories related api
+        app.get('/stories', async (req, res) => {
+            const result = await storiesCollection.find().toArray();
+            res.send(result);
+        });
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
