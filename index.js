@@ -38,6 +38,22 @@ async function run() {
             res.send({ token });
         })
 
+        // middlewares 
+        const verifyToken = (req, res, next) => {
+            if (!req.headers.authorization) {
+                return res.status(401).send({ message: 'unauthorized access' });
+            }
+            const token = req.headers.authorization.split(' ')[1];
+            console.log(token);
+            jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+                if (err) {
+                    return res.status(401).send({ message: 'unauthorized access' })
+                }
+                req.decoded = decoded;
+                next();
+            })
+        }
+
         // users related api
         app.get('/users', async (req, res) => {
             const result = await userCollection.find().toArray();
@@ -60,7 +76,7 @@ async function run() {
             const result = await biodataCollection.find().toArray();
             res.send(result)
         })
-        // todo: post request for biodata
+        // todo: post request for biodata for create biodata
 
         // stories related api
         app.get('/stories', async (req, res) => {
