@@ -38,7 +38,7 @@ async function run() {
             res.send({ token });
         })
 
-        // middlewares 
+        // middleware for jwt token vwrification
         const verifyToken = (req, res, next) => {
             if (!req.headers.authorization) {
                 return res.status(401).send({ message: 'unauthorized access' });
@@ -53,8 +53,20 @@ async function run() {
             })
         }
 
+        // middleware for admin verification
+        const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email };
+            const user = await userCollection.findOne(query);
+            const isAdmin = user?.role === 'admin';
+            if (!isAdmin) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            next();
+        }
+
         // users related api
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             const result = await userCollection.find().toArray();
             res.send(result);
         });
@@ -87,11 +99,11 @@ async function run() {
         });
 
         // biodata related api's
-        app.get('/biodata', async (req, res) => {
+        app.get("/biodata", async (req, res) => {
             const result = await biodataCollection.find().toArray();
-            res.send(result)
-        })
-        // todo: post request for biodata for create biodata
+            res.send(result);
+        });
+        // Create Biodata
 
         app.get('/biodata/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
@@ -99,6 +111,35 @@ async function run() {
             const biodata = await biodataCollection.findOne(query);
             res.send(biodata);
         });
+
+        // POST: Create new biodata with dynamic biodataId
+        app.post('/biodata', verifyToken, async (req, res) => {
+            const newBiodata = req.body;
+            const lastBiodata = await biodataCollection.find().sort({ biodataId: -1 }).limit(1).toArray();
+
+            let newBiodataId = 1;
+            if (lastBiodata.length > 0) {
+                newBiodataId = lastBiodata[0].biodataId + 1;
+            }
+            newBiodata.biodataId = newBiodataId;
+            const result = await biodataCollection.insertOne(newBiodata);
+            res.send(result)
+        });
+
+        app.patch('/biodata/:id', verifyToken, async (req, res) => {
+            const id = req.params.id;
+            const updatedData = req.body;
+            delete updatedData._id;
+
+            const query = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: updatedData,
+            };
+
+            const result = await biodataCollection.updateOne(query, updateDoc);
+            res.send(result);
+        });
+
 
         // stories related api
         app.get('/stories', async (req, res) => {
