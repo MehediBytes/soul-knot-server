@@ -150,9 +150,16 @@ async function run() {
             res.send(result);
         });
 
-        app.post('/favorites', async (req, res) => {
+        app.post('/favorites', verifyToken, async (req, res) => {
             const favorite = req.body;
             const result = await favoritesCollection.insertOne(favorite);
+            res.send(result);
+        });
+
+        app.delete('/favorites/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: id }
+            const result = await favoritesCollection.deleteOne(query);
             res.send(result);
         });
 
