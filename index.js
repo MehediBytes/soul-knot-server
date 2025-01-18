@@ -29,6 +29,7 @@ async function run() {
 
         const biodataCollection = client.db("soulKnotDB").collection("biodata");
         const userCollection = client.db("soulKnotDB").collection("users");
+        const favoritesCollection = client.db("soulKnotDB").collection("favorites");
         const storiesCollection = client.db("soulKnotDB").collection("stories");
 
         // jwt related api
@@ -81,14 +82,17 @@ async function run() {
             const query = { email: email };
             const user = await userCollection.findOne(query);
             let admin = false;
+            let premium = false;
             if (user) {
                 admin = user?.role === 'admin';
+                premium = user?.memberType === 'premium'
             }
-            res.send({ admin });
+            res.send({ admin, premium });
         })
 
         app.post('/users', async (req, res) => {
             const user = req.body;
+            console.log(user);
             const query = { email: user.email }
             const existingUser = await userCollection.findOne(query);
             if (existingUser) {
@@ -140,6 +144,17 @@ async function run() {
             res.send(result);
         });
 
+        // favourites related api
+        app.get('/favorites', async (req, res) => {
+            const result = await favoritesCollection.find().toArray();
+            res.send(result);
+        });
+
+        app.post('/favorites', async (req, res) => {
+            const favorite = req.body;
+            const result = await favoritesCollection.insertOne(favorite);
+            res.send(result);
+        });
 
         // stories related api
         app.get('/stories', async (req, res) => {
