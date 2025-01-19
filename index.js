@@ -184,7 +184,7 @@ async function run() {
                 currency: 'usd',
                 payment_method_types: ['card']
             });
-            res.send({clientSecret: paymentIntent.client_secret})
+            res.send({ clientSecret: paymentIntent.client_secret })
         });
 
         app.get('/check-payment-status', verifyToken, async (req, res) => {
@@ -203,6 +203,17 @@ async function run() {
             res.send({ paymentResult });
         })
 
+        app.get('/my-contact-requests', verifyToken, async (req, res) => {
+            const email = req.decoded.email;
+            const requests = await paymentCollection.find({ requestEmail: email }).toArray();
+            res.send(requests);
+        });
+
+        app.delete('/delete-payment/:id', verifyToken, async (req, res) => {
+            const id = req.params.id;
+            const result = await paymentCollection.deleteOne({ _id: new ObjectId(id) });
+            res.send(result);
+        });
 
         // stories related api need to change in future......
         app.get('/stories', async (req, res) => {
