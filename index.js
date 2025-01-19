@@ -109,7 +109,6 @@ async function run() {
             const result = await biodataCollection.find().toArray();
             res.send(result);
         });
-        // Create Biodata
 
         app.get('/biodata/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
@@ -136,12 +135,8 @@ async function run() {
             const id = req.params.id;
             const updatedData = req.body;
             delete updatedData._id;
-
             const query = { _id: new ObjectId(id) };
-            const updateDoc = {
-                $set: updatedData,
-            };
-
+            const updateDoc = {$set: updatedData};
             const result = await biodataCollection.updateOne(query, updateDoc);
             res.send(result);
         });
@@ -160,7 +155,6 @@ async function run() {
             res.send(result);
         });
 
-        // POST route for getting user's favorites
         app.get('/favorites/:userEmail', verifyToken, async (req, res) => {
             const { userEmail } = req.params;
             const userFavorites = await favoritesCollection.find({ userFavorite: userEmail }).toArray();
@@ -215,9 +209,34 @@ async function run() {
             res.send(result);
         });
 
-        // stories related api need to change in future......
-        app.get('/stories', async (req, res) => {
-            const result = await storiesCollection.find().toArray();
+        // stories related api
+        app.get('/success-stories', async (req, res) => {
+            const stories = await storiesCollection.find({}).sort({ createdAt: -1 }).toArray();
+            res.send(stories);
+        });
+
+        app.post('/success-stories', verifyToken, async (req, res) => {
+            const story = req.body;
+            story.createdAt = new Date();
+            const result = await storiesCollection.insertOne(story);
+            res.send(result);
+        });
+
+        app.patch('/success-stories/:id', verifyToken, async (req, res) => {
+            const item = req.body;
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) }
+            const updatedDoc = {
+                $set: {
+                    selfBiodataId: item.selfBiodataId,
+                    partnerBiodataId: item.partnerBiodataId,
+                    coupleImage: item.coupleImage,
+                    reviewStar: item.reviewStar,
+                    review: item.review,
+                    updatedAt: new Date(),
+                }
+            }
+            const result = await storiesCollection.updateOne(filter, updatedDoc)
             res.send(result);
         });
 
