@@ -3,6 +3,7 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -30,6 +31,7 @@ async function run() {
         const biodataCollection = client.db("soulKnotDB").collection("biodata");
         const userCollection = client.db("soulKnotDB").collection("users");
         const favoritesCollection = client.db("soulKnotDB").collection("favorites");
+        const paymentCollection = client.db("soulKnotDB").collection("payments");
         const storiesCollection = client.db("soulKnotDB").collection("stories");
 
         // jwt related api
@@ -67,7 +69,7 @@ async function run() {
         }
 
         // users related api
-        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+        app.get('/users', async (req, res) => {
             const result = await userCollection.find().toArray();
             res.send(result);
         });
@@ -145,25 +147,64 @@ async function run() {
         });
 
         // favourites related api
-        app.get('/favorites', async (req, res) => {
-            const result = await favoritesCollection.find().toArray();
+        app.post('/favorites', async (req, res) => {
+            const { biodataId, userFavorite } = req.body;
+            if (!biodataId || !userFavorite) {
+                return res.status(400).json({ error: 'Missing biodataId or userFavorite' });
+            }
+            const existingFavorite = await favoritesCollection.findOne({ biodataId: biodataId, userFavorite: userFavorite });
+            if (existingFavorite) {
+                return res.status(200).json({ message: 'This biodata is already in your favorites.' });
+            }
+            const result = await favoritesCollection.insertOne({ biodataId, userFavorite });
             res.send(result);
         });
 
-        app.post('/favorites', verifyToken, async (req, res) => {
-            const favorite = req.body;
-            const result = await favoritesCollection.insertOne(favorite);
-            res.send(result);
+        // POST route for getting user's favorites
+        app.get('/favorites/:userEmail', verifyToken, async (req, res) => {
+            const { userEmail } = req.params;
+            const userFavorites = await favoritesCollection.find({ userFavorite: userEmail }).toArray();
+            res.send(userFavorites);
         });
 
-        app.delete('/favorites/:id', async (req, res) => {
+        app.delete('/favorites/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
-            const query = { _id: id }
+            const query = { _id: new ObjectId(id) }
             const result = await favoritesCollection.deleteOne(query);
             res.send(result);
         });
 
-        // stories related api
+        // payment intent
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+            console.log(amount, 'amount inside the intent')
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({clientSecret: paymentIntent.client_secret})
+        });
+
+        app.get('/check-payment-status', verifyToken, async (req, res) => {
+            const { biodataId, email } = req.query;
+            const payment = await paymentCollection.findOne({ biodataId, requestEmail: email });
+            if (payment) {
+                res.send({ hasPaid: true, transactionId: payment.paymentId });
+            } else {
+                res.send({ hasPaid: false });
+            }
+        });
+
+        app.post('/payments', verifyToken, async (req, res) => {
+            const payment = req.body;
+            const paymentResult = await paymentCollection.insertOne(payment);
+            res.send({ paymentResult });
+        })
+
+
+        // stories related api need to change in future......
         app.get('/stories', async (req, res) => {
             const result = await storiesCollection.find().toArray();
             res.send(result);
