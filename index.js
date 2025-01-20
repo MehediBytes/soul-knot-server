@@ -94,7 +94,6 @@ async function run() {
 
         app.post('/users', async (req, res) => {
             const user = req.body;
-            console.log(user);
             const query = { email: user.email }
             const existingUser = await userCollection.findOne(query);
             if (existingUser) {
@@ -120,13 +119,18 @@ async function run() {
         // POST: Create new biodata with dynamic biodataId
         app.post('/biodata', verifyToken, async (req, res) => {
             const newBiodata = req.body;
+            const email = req.decoded.email;
+            const user = await userCollection.findOne({ email });
+            if (!user) {
+                return res.status(404).send({ message: 'User not found' });
+            }
             const lastBiodata = await biodataCollection.find().sort({ biodataId: -1 }).limit(1).toArray();
-
             let newBiodataId = 1;
             if (lastBiodata.length > 0) {
                 newBiodataId = lastBiodata[0].biodataId + 1;
             }
             newBiodata.biodataId = newBiodataId;
+            newBiodata.memberType = user.memberType;
             const result = await biodataCollection.insertOne(newBiodata);
             res.send(result)
         });
@@ -134,9 +138,15 @@ async function run() {
         app.patch('/biodata/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const updatedData = req.body;
+            const email = req.decoded.email;
+            const user = await userCollection.findOne({ email });
+            if (!user) {
+                return res.status(404).send({ message: 'User not found' });
+            }
             delete updatedData._id;
             const query = { _id: new ObjectId(id) };
-            const updateDoc = {$set: updatedData};
+            updatedData.memberType = user.memberType;
+            const updateDoc = { $set: updatedData };
             const result = await biodataCollection.updateOne(query, updateDoc);
             res.send(result);
         });
@@ -197,10 +207,25 @@ async function run() {
             res.send({ paymentResult });
         })
 
+        app.get('/payments', verifyToken, verifyAdmin, async (req, res) => {
+            const requests = await paymentCollection.find().toArray();
+            res.send(requests);
+        });
+
         app.get('/my-contact-requests', verifyToken, async (req, res) => {
             const email = req.decoded.email;
             const requests = await paymentCollection.find({ requestEmail: email }).toArray();
             res.send(requests);
+        });
+
+        app.patch("/payments/:id", verifyToken, verifyAdmin, async (req, res) => {
+            const { id } = req.params;
+            const { status } = req.body;
+            const result = await paymentCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: { status } }
+            );
+            res.send(result);
         });
 
         app.delete('/delete-payment/:id', verifyToken, async (req, res) => {
