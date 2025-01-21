@@ -71,26 +71,37 @@ async function run() {
 
         // users related api
         app.get('/users', async (req, res) => {
-            const result = await userCollection.find().toArray();
+            const { search } = req.query;
+            const query = search ? { name: { $regex: search, $options: "i" } } : {};
+            const result = await userCollection.find(query).toArray();
             res.send(result);
         });
 
+        app.put('/users/role/:id', verifyToken, verifyAdmin, async (req, res) => {
+            const userId = req.params.id;
+            const { role } = req.body;
+            const userRoleUpdate = await userCollection.updateOne(
+                { _id: new ObjectId(userId) },
+                { $set: { role: role || 'admin' } },
+                { upsert: true }
+            )
+            if (userRoleUpdate.modifiedCount > 0) {
+                res.json({ success: true, message: 'User successfully upgraded to Admin.' });
+            }
+        })
+
         app.get('/users/admin/:email', verifyToken, async (req, res) => {
             const email = req.params.email;
-
             if (email !== req.decoded.email) {
                 return res.status(403).send({ message: 'forbidden access' })
             }
-
             const query = { email: email };
             const user = await userCollection.findOne(query);
             let admin = false;
-            let premium = false;
             if (user) {
                 admin = user?.role === 'admin';
-                premium = user?.memberType === 'premium';
             }
-            res.send({ admin, premium });
+            res.send({ admin });
         })
 
         app.post('/users', async (req, res) => {
@@ -155,13 +166,13 @@ async function run() {
         // premium related api's
         app.post('/premium/request', verifyToken, async (req, res) => {
             const payload = req.body;
-            const { biodataId,memberType, userEmail, userName } = payload;
+            const { biodataId, memberType, userEmail, userName } = payload;
             const user = await userCollection.findOne({ email: userEmail });
             const biodata = await biodataCollection.findOne({ biodataId });
             if (user.memberType === 'premium' || biodata.memberType === 'premium') {
                 return res.status(400).json({ success: false, message: 'Already a premium member.' });
             }
-            const result = await premiumCollection.insertOne({ biodataId,memberType, userEmail, userName });
+            const result = await premiumCollection.insertOne({ biodataId, memberType, userEmail, userName });
             res.send(result)
         })
 
@@ -172,15 +183,7 @@ async function run() {
 
         app.put('/admin/approve-premium/:id', verifyToken, verifyAdmin, async (req, res) => {
             const { biodataId, userEmail } = req.body;
-            const { id } = req.params;
-            if (!id) {
-                console.error('Missing ID');
-                return res.status(400).json({ message: 'Missing ID in the request URL.' });
-            }
-            if (!biodataId || !userEmail) {
-                console.error('Invalid Request Body');
-                return res.status(400).json({ message: 'Invalid request body. biodataId and userEmail are required.' });
-            }
+
             const userUpdate = await userCollection.updateOne(
                 { email: userEmail },
                 { $set: { memberType: 'premium' }, $setOnInsert: {} }
@@ -190,8 +193,13 @@ async function run() {
                 { biodataId: biodataId },
                 { $set: { memberType: 'premium' }, $setOnInsert: {} }
             );
+            const premiumUpdate = await premiumCollection.updateOne(
+                { userEmail: userEmail },
+                { $set: { memberType: 'premium', biodataId: biodataId } },
+                { upsert: true }
+            )
 
-            if (userUpdate.modifiedCount > 0 && biodataUpdate.modifiedCount > 0) {
+            if (userUpdate.modifiedCount > 0 && biodataUpdate.modifiedCount > 0 && premiumUpdate.modifiedCount > 0) {
                 res.json({ success: true, message: 'User and biodata successfully upgraded to premium.' });
             }
         })
