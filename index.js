@@ -33,6 +33,7 @@ async function run() {
         const favoritesCollection = client.db("soulKnotDB").collection("favorites");
         const paymentCollection = client.db("soulKnotDB").collection("payments");
         const storiesCollection = client.db("soulKnotDB").collection("stories");
+        const premiumCollection = client.db("soulKnotDB").collection("premium");
 
         // jwt related api
         app.post('/jwt', async (req, res) => {
@@ -87,7 +88,7 @@ async function run() {
             let premium = false;
             if (user) {
                 admin = user?.role === 'admin';
-                premium = user?.memberType === 'premium'
+                premium = user?.memberType === 'premium';
             }
             res.send({ admin, premium });
         })
@@ -151,6 +152,50 @@ async function run() {
             res.send(result);
         });
 
+        // premium related api's
+        app.post('/premium/request', verifyToken, async (req, res) => {
+            const payload = req.body;
+            const { biodataId,memberType, userEmail, userName } = payload;
+            const user = await userCollection.findOne({ email: userEmail });
+            const biodata = await biodataCollection.findOne({ biodataId });
+            if (user.memberType === 'premium' || biodata.memberType === 'premium') {
+                return res.status(400).json({ success: false, message: 'Already a premium member.' });
+            }
+            const result = await premiumCollection.insertOne({ biodataId,memberType, userEmail, userName });
+            res.send(result)
+        })
+
+        app.get("/premium/request", verifyToken, verifyAdmin, async (req, res) => {
+            const result = await premiumCollection.find().toArray();
+            res.send(result);
+        });
+
+        app.put('/admin/approve-premium/:id', verifyToken, verifyAdmin, async (req, res) => {
+            const { biodataId, userEmail } = req.body;
+            const { id } = req.params;
+            if (!id) {
+                console.error('Missing ID');
+                return res.status(400).json({ message: 'Missing ID in the request URL.' });
+            }
+            if (!biodataId || !userEmail) {
+                console.error('Invalid Request Body');
+                return res.status(400).json({ message: 'Invalid request body. biodataId and userEmail are required.' });
+            }
+            const userUpdate = await userCollection.updateOne(
+                { email: userEmail },
+                { $set: { memberType: 'premium' }, $setOnInsert: {} }
+            );
+
+            const biodataUpdate = await biodataCollection.updateOne(
+                { biodataId: biodataId },
+                { $set: { memberType: 'premium' }, $setOnInsert: {} }
+            );
+
+            if (userUpdate.modifiedCount > 0 && biodataUpdate.modifiedCount > 0) {
+                res.json({ success: true, message: 'User and biodata successfully upgraded to premium.' });
+            }
+        })
+
         // favourites related api
         app.post('/favorites', async (req, res) => {
             const { biodataId, userFavorite } = req.body;
@@ -178,7 +223,7 @@ async function run() {
             res.send(result);
         });
 
-        // payment intent
+        // payment intent and payment related api's
         app.post('/create-payment-intent', async (req, res) => {
             const { price } = req.body;
             const amount = parseInt(price * 100);
