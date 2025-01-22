@@ -26,7 +26,7 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
+        // await client.connect();
 
         const biodataCollection = client.db("soulKnotDB").collection("biodata");
         const userCollection = client.db("soulKnotDB").collection("users");
@@ -70,7 +70,7 @@ async function run() {
         }
 
         // users related api
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
             const { search } = req.query;
             const query = search ? { name: { $regex: search, $options: "i" } } : {};
             const result = await userCollection.find(query).toArray();
@@ -336,8 +336,8 @@ async function run() {
         });
 
         // Send a ping to confirm a successful connection
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {
         // Ensures that the client will close when you finish/error
         // await client.close();
