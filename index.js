@@ -198,25 +198,9 @@ async function run() {
             res.send(result);
         });
 
-        app.put('/approve-premium/:id', verifyToken, verifyAdmin, async (req, res) => {
-            const { userEmail } = req.body;
-            const userUpdate = await userCollection.updateOne(
-                { email: userEmail },
-                { $set: { memberType: 'premium' }, $setOnInsert: {} }
-            );
-
-            const biodataUpdate = await biodataCollection.updateOne(
-                { contactEmail: userEmail },
-                { $set: { memberType: 'premium' }, $setOnInsert: {} }
-            );
-            if (userUpdate.modifiedCount > 0 && biodataUpdate.modifiedCount > 0) {
-                res.json({ success: true, message: 'User and biodata successfully upgraded to premium.' });
-            }
-        })
-
         app.put('/admin/approve-premium/:id', verifyToken, verifyAdmin, async (req, res) => {
             const { biodataId, userEmail } = req.body;
-
+            
             const userUpdate = await userCollection.updateOne(
                 { email: userEmail },
                 { $set: { memberType: 'premium' }, $setOnInsert: {} }
