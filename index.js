@@ -7,7 +7,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
 const corsOption = {
-    origin: ['http://localhost:5173', 'https://soul-knot-server.vercel.app'],
+    origin: ['http://localhost:5173', 'https://soul-knot.web.app'],
     credentials: true,
     optionalSuccessStatus: 200,
 }
