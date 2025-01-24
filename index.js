@@ -6,8 +6,14 @@ const jwt = require('jsonwebtoken');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 5000;
 
+const corsOption = {
+    origin: ['http://localhost:5173', 'https://soul-knot-server.vercel.app'],
+    credentials: true,
+    optionalSuccessStatus: 200,
+}
+
 // middleware
-app.use(cors());
+app.use(cors(corsOption));
 app.use(express.json());
 
 
@@ -167,18 +173,27 @@ async function run() {
 
         // premium related api's
         app.post('/premium/request', verifyToken, async (req, res) => {
-            const payload = req.body;
-            const { biodataId, memberType, userEmail, userName } = payload;
+            const { biodataId, userEmail, userName } = req.body;
             const user = await userCollection.findOne({ email: userEmail });
             const biodata = await biodataCollection.findOne({ biodataId });
-            if (user.memberType === 'premium' || biodata.memberType === 'premium') {
-                return res.status(400).json({ success: false, message: 'Already a premium member.' });
+            if (!user || user.memberType === 'premium' || biodata?.memberType === 'premium') {
+                return res.status(400).json({ success: false, message: 'You are already a premium member.' });
             }
-            const result = await premiumCollection.insertOne({ biodataId, memberType, userEmail, userName });
-            res.send(result)
+            const existingRequest = await premiumCollection.findOne({ userEmail });
+            if (existingRequest) {
+                return res.status(400).json({ success: false, message: 'Premium request already sent.' });
+            }
+            const result = await premiumCollection.insertOne({
+                biodataId,
+                userEmail,
+                userName,
+                memberType: 'standard',
+                status: 'pending',
+            });
+            res.send(result);
         })
 
-        app.get("/premium/request", verifyToken, verifyAdmin, async (req, res) => {
+        app.get("/premium/request", verifyToken, async (req, res) => {
             const result = await premiumCollection.find().toArray();
             res.send(result);
         });
@@ -198,6 +213,7 @@ async function run() {
                 res.json({ success: true, message: 'User and biodata successfully upgraded to premium.' });
             }
         })
+
         app.put('/admin/approve-premium/:id', verifyToken, verifyAdmin, async (req, res) => {
             const { biodataId, userEmail } = req.body;
 
@@ -212,7 +228,7 @@ async function run() {
             );
             const premiumUpdate = await premiumCollection.updateOne(
                 { userEmail: userEmail },
-                { $set: { memberType: 'premium', biodataId: biodataId } },
+                { $set: { memberType: 'premium', biodataId: biodataId, status: 'approved' } },
                 { upsert: true }
             )
 
@@ -312,7 +328,6 @@ async function run() {
 
         app.post('/success-stories', verifyToken, async (req, res) => {
             const story = req.body;
-            story.createdAt = new Date();
             const result = await storiesCollection.insertOne(story);
             res.send(result);
         });
@@ -328,7 +343,7 @@ async function run() {
                     coupleImage: item.coupleImage,
                     reviewStar: item.reviewStar,
                     review: item.review,
-                    updatedAt: new Date(),
+                    marriageDate: item.marriageDate,
                 }
             }
             const result = await storiesCollection.updateOne(filter, updatedDoc)
