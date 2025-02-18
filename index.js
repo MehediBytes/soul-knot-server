@@ -129,7 +129,7 @@ async function run() {
             res.send(result);
         });
 
-        app.get('/biodata/:id', verifyToken, async (req, res) => {
+        app.get('/biodata/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: new ObjectId(id) }
             const biodata = await biodataCollection.findOne(query);
@@ -200,7 +200,7 @@ async function run() {
 
         app.put('/admin/approve-premium/:id', verifyToken, verifyAdmin, async (req, res) => {
             const { biodataId, userEmail } = req.body;
-            
+
             const userUpdate = await userCollection.updateOne(
                 { email: userEmail },
                 { $set: { memberType: 'premium' }, $setOnInsert: {} }
@@ -300,7 +300,7 @@ async function run() {
 
         app.delete('/delete-payment/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
-            const result = await paymentCollection.deleteOne({ _id: new ObjectId(id) });
+            const result = await paymentCollection.deleteOne({ paymentId: id });
             res.send(result);
         });
 
