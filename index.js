@@ -76,7 +76,7 @@ async function run() {
         }
 
         // users related api
-        app.get('/users', verifyToken, verifyAdmin, async (req, res) => {
+        app.get('/users', verifyToken, async (req, res) => {
             const { search } = req.query;
             const query = search ? { name: { $regex: search, $options: "i" } } : {};
             const result = await userCollection.find(query).toArray();
@@ -277,7 +277,7 @@ async function run() {
             res.send({ paymentResult });
         })
 
-        app.get('/payments', verifyToken, verifyAdmin, async (req, res) => {
+        app.get('/payments', verifyToken, async (req, res) => {
             const requests = await paymentCollection.find().toArray();
             res.send(requests);
         });
