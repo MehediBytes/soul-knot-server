@@ -96,11 +96,8 @@ async function run() {
             }
         })
 
-        app.get('/users/admin/:email', verifyToken, async (req, res) => {
+        app.get('/users/admin/:email', async (req, res) => {
             const email = req.params.email;
-            if (email !== req.decoded.email) {
-                return res.status(403).send({ message: 'forbidden access' })
-            }
             const query = { email: email };
             const user = await userCollection.findOne(query);
             let admin = false;
@@ -193,7 +190,7 @@ async function run() {
             res.send(result);
         })
 
-        app.get("/premium/request", verifyToken, async (req, res) => {
+        app.get("/premium/request", async (req, res) => {
             const result = await premiumCollection.find().toArray();
             res.send(result);
         });
@@ -235,7 +232,7 @@ async function run() {
             res.send(result);
         });
 
-        app.get('/favorites/:userEmail', verifyToken, async (req, res) => {
+        app.get('/favorites/:userEmail', async (req, res) => {
             const { userEmail } = req.params;
             const userFavorites = await favoritesCollection.find({ userFavorite: userEmail }).toArray();
             res.send(userFavorites);
@@ -261,7 +258,7 @@ async function run() {
             res.send({ clientSecret: paymentIntent.client_secret })
         });
 
-        app.get('/check-payment-status', verifyToken, async (req, res) => {
+        app.get('/check-payment-status', async (req, res) => {
             const { biodataId, email } = req.query;
             const payment = await paymentCollection.findOne({ biodataId, requestEmail: email });
             if (payment) {
